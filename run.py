@@ -16,8 +16,6 @@ import cv2
 import sys, getopt
 
 def main(argv):
-   stacks = 4
-   dataset = 'mnist'
    loc = True
    glob = False
    noise = False
