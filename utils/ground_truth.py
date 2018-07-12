@@ -18,7 +18,7 @@ from sklearn.preprocessing import MinMaxScaler
 # - Open fixation map for each participant
 # - For each area take X number of fixations and make ground truth map
 
-def parse_area(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, binary):
+def parse_area(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, binary, area):
 
     # scaler = MinMaxScaler(copy=True, feature_range=(0, 255))
     # scaler.fit()
@@ -28,6 +28,8 @@ def parse_area(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, binary
         max_i = 0
         while line:
             line = file.readline()
+            if not line:
+                break
             line_split = line.split()
             # In case of new participant reset
             if len(line_split) <= 1:
@@ -42,19 +44,23 @@ def parse_area(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, binary
             # In case of fixation within bounding area:
             if (bx <= pt_x <= bx + bw) and (by <= pt_y <= by + bh):
                 max_i = max_i + 1
-                blank_image[int(math.floor(pt_y - by)) + 1 + 20:int(math.floor(pt_y - by)) + 1 + 30, int(math.floor(pt_x - bx)) + 1 + 20: int(math.floor(pt_x - bx)) + 1 + 30, 0] = 255
+                blank_image[int(math.floor(pt_y - by)) - 2 + area:int(math.floor(pt_y - by)) + 2 + area, int(math.floor(pt_x - bx)) - 2 + area:int(math.floor(pt_x - bx)) + 2 + area, 0] = 255
                 # cv.imshow('saliency', blank_image)
                 # cv.waitKey(0)
                 # cv.destroyAllWindows()
-            line = file.readline()
 
     if sigma > 0:
         blank_image = cv.GaussianBlur(blank_image, (int(kernel), int(kernel)), float(sigma))
-        blank_image *= int(255 / blank_image.max())
+        #scale image up to 255
+        blank_image = blank_image * int(255 / blank_image.max())
+        # scale 0 - 1 = 0 - 255 for network
+        scaled_image = np.zeros((blank_image.shape[0], blank_image.shape[1], 1), np.float64)
+        delim = 1./255
+        scaled_image = blank_image * delim
         #blank_image = scaler.transform(blank_image)
-    return blank_image
+    return blank_image, scaled_image
 
-def extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth):
+def extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth, area):
     # load images
 
     im_counter = 0
@@ -93,14 +99,14 @@ def extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth
 
                 bx, by, bw, bh = cv.boundingRect(cnt)
 
-                # 20 px on each side
-                blank_image = np.zeros((max_y - min_y + 40, max_x - min_x + 40, 1), np.uint8)
-                shape_image = np.zeros((max_y - min_y + 40, max_x - min_x + 40, 1), np.uint8)
-                shape_image[20:20+bh, 20:20+bw, 0] = thr[by:by+bh, bx:bx+bw]
+                # area px on each side
+                blank_image = np.zeros((max_y - min_y + 2 * area, max_x - min_x + 2 * area, 1), np.uint8)
+                shape_image = np.zeros((max_y - min_y + 2 * area, max_x - min_x + 2 * area, 1), np.uint8)
+                shape_image[area:area+bh, area:area+bw, 0] = thr[by:by+bh, bx:bx+bw]
 
 
 
-                blank_image = parse_area(name, blank_image, bx, by, bw, bh, fixations, sigma, kernel, binary,)
+                blank_image, scaled_image = parse_area(name, blank_image, bx, by, bw, bh, fixations, sigma, kernel, binary, area)
 
                 cv.rectangle(img_color, (bx,by), (bx+bw,by+bh), (random.randint(0,255), random.randint(0,255), random.randint(0,255)))
                 cv.drawContours(img_color, [cnt], 0, (random.randint(0,255), random.randint(0,255), random.randint(0,255)), 3)
@@ -113,6 +119,7 @@ def extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth
                 # store images
                 cv.imwrite('../images/local_gt/'+str(im_counter)+'_gt.png', blank_image)
                 cv.imwrite('../images/local_gt/'+str(im_counter)+'_shape.png', shape_image)
+                cv.imwrite('../images/local_gt/'+str(im_counter)+'_gt_scaled.png', scaled_image)
                 im_counter = im_counter + 1
 
 
@@ -131,14 +138,15 @@ def main(argv):
     width = 400
     heigth = 400
     kernel = 3
+    area = 50
     try:
-      opts, args = getopt.getopt(argv, "hf:s:k:b", ["fixations=", "sigma=", "kernel="])
+      opts, args = getopt.getopt(argv, "hf:s:k:ba:", ["fixations=", "sigma=", "kernel=", "area="])
     except getopt.GetoptError:
-      print('ground_truth.py -f <number_of_fixations> -s <sigma> -k <kernel_size> -b (if set then binary) -r (if to resize) -w <width> -h <heigth>')
+      print('ground_truth.py -f <number_of_fixations> -s <sigma> -k <kernel_size> -b (if set then binary) -r (if to resize) -w <width> -h <heigth> -a <margin_area>')
       sys.exit(2)
     for opt, arg in opts:
       if opt == '-h':
-         print('ground_truth.py -f <number_of_fixations> -s <sigma> -k <kernel_size> -b (if set then binary) -r (if to resize) -w <width> -h <heigth>')
+         print('ground_truth.py -f <number_of_fixations> -s <sigma> -k <kernel_size> -b (if set then binary) -r (if to resize) -w <width> -h <heigth> -a <margin_area>')
          sys.exit()
       elif opt == '-f':
           fixations = int(arg)
@@ -154,7 +162,9 @@ def main(argv):
           width = arg
       elif opt == '-h':
           heigth = arg
-    extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth)
+      elif opt == '-a':
+          area = arg
+    extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth, area)
 
 if __name__ == "__main__":
     print(sys.argv)

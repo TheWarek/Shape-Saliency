@@ -106,3 +106,4 @@ venv.bak/
 # User created directories and files
 fixations/images
 images/local_gt
+images/dataset
