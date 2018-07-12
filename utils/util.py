@@ -32,7 +32,7 @@ def get_images_list():
     for file in os.listdir('../images/.'):
         if file.endswith(".png"):
             name = os.path.splitext(file)[0]
-            images.append(name)
+            images.append(file)
 
     return images
 
@@ -78,6 +78,7 @@ def get_local_gt(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, bina
 
     if resize > 0:
         blank_image = cv.resize(blank_image, (resize, resize))
+        blank_image = blank_image.reshape(resize, resize, 1)
 
     if sigma > 0:
         blank_image = cv.GaussianBlur(blank_image, (int(kernel), int(kernel)), float(sigma))
@@ -130,6 +131,7 @@ def get_clipped_shape(from_image, bx, by, bw, bh, area, resize):
 
     if resize > 0:
         shape_image = cv.resize(shape_image, (resize, resize))
+        shape_image = shape_image.reshape(resize, resize, 1)
 
     # We need to scale it to 0-1 based on whole image (in case of global saliency models)
     scaled_shape_image = np.zeros((shape_image.shape[0], shape_image.shape[1], 1), np.float64)

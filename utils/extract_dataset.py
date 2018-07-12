@@ -33,7 +33,7 @@ def extract_dataset():
 
     # Prepare h5py format for storage
     # Open file and prepare for append
-    h5f = h5py.File(store_file, 'a')
+    h5f = h5py.File(store_file, 'w')
     train_loc = h5f.create_dataset("train_loc", (0, image_size, image_size, len(loc_models) + 1),
                                    maxshape=(None, image_size, image_size, len(loc_models) + 1))
     valid_loc = h5f.create_dataset("valid_loc", (0, image_size, image_size, len(loc_models) + 1),
@@ -113,7 +113,7 @@ def extract_dataset():
                 # Create multichannel image
                 result_image = np.concatenate((result_image, scaled_mod_shape), axis=2)
                 if verbose == 1:
-                    cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_'+model+'.png',mod_shape)
+                    cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_loc_'+model+'.png',mod_shape)
 
             store_image_loc.append(result_image)
             store_gt_loc.append(scaled_gt_loc_shape_image)
@@ -132,7 +132,7 @@ def extract_dataset():
                 # Create multichannel image
                 result_image = np.concatenate((result_image, scaled_mod_shape), axis=2)
                 if verbose == 1:
-                    cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_'+model+'.png',mod_shape)
+                    cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_glob_'+model+'.png',mod_shape)
 
             store_image_glob.append(result_image)
             store_gt_glob.append(scaled_gt_glob_shape_image)
