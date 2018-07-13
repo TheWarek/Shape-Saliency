@@ -107,4 +107,5 @@ venv.bak/
 fixations/images
 images/local_gt
 images/dataset
-datasets/.
+datasets/
+datasets/data.h5

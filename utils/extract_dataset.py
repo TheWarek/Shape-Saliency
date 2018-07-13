@@ -33,27 +33,6 @@ def extract_dataset():
     # Get info about models
     loc_models, glob_models = get_loc_glob_models_list()
 
-    # Prepare h5py format for storage
-    # Open file and prepare for append
-    h5f = h5py.File(store_file, 'w')
-    train_loc = h5f.create_dataset("train_loc", (0, image_size, image_size, len(loc_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
-    valid_loc = h5f.create_dataset("valid_loc", (0, image_size, image_size, len(loc_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
-    train_gt_loc = h5f.create_dataset("train_gt_loc", (0, image_size, image_size, 1),
-                                   maxshape=(None, image_size, image_size, 1))
-    valid_gt_loc = h5f.create_dataset("valid_gt_loc", (0, image_size, image_size, 1),
-                                      maxshape=(None, image_size, image_size, 1))
-
-    train_glob = h5f.create_dataset("train_glob", (0, image_size, image_size, len(glob_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(glob_models) + 1))
-    valid_glob = h5f.create_dataset("valid_glob", (0, image_size, image_size, len(glob_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(glob_models) + 1))
-    train_gt_glob = h5f.create_dataset("train_gt_glob", (0, image_size, image_size, 1),
-                                      maxshape=(None, image_size, image_size, 1))
-    valid_gt_glob = h5f.create_dataset("valid_gt_glob", (0, image_size, image_size, 1),
-                                      maxshape=(None, image_size, image_size, 1))
-
     # Get list of images used in experiment
     images = get_images_list()
 
@@ -162,6 +141,31 @@ def extract_dataset():
             store_gt_glob = np.append(store_gt_glob, scaled_gt_glob_shape_image, axis=0)
 
     # APPEND INTO H5PY FILE
+    # Split into training / valid datasets
+    end_t = round(len(store_image_loc) * train_size)
+
+    # Prepare h5py format for storage
+    # Open file and prepare for append
+    h5f = h5py.File(store_file, 'w')
+    train_loc = h5f.create_dataset("train_loc", (end_t, image_size, image_size, len(loc_models) + 1),
+                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
+    valid_loc = h5f.create_dataset("valid_loc", (len(store_image_loc) - end_t, image_size, image_size, len(loc_models) + 1),
+                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
+    train_gt_loc = h5f.create_dataset("train_gt_loc", (end_t, image_size, image_size, 1),
+                                      maxshape=(None, image_size, image_size, 1))
+    valid_gt_loc = h5f.create_dataset("valid_gt_loc", (len(store_image_loc) - end_t, image_size, image_size, 1),
+                                      maxshape=(None, image_size, image_size, 1))
+
+    train_glob = h5f.create_dataset("train_glob", (end_t, image_size, image_size, len(glob_models) + 1),
+                                    maxshape=(None, image_size, image_size, len(glob_models) + 1))
+    valid_glob = h5f.create_dataset("valid_glob", (len(store_image_loc) - end_t, image_size, image_size, len(glob_models) + 1),
+                                    maxshape=(None, image_size, image_size, len(glob_models) + 1))
+    train_gt_glob = h5f.create_dataset("train_gt_glob", (end_t, image_size, image_size, 1),
+                                       maxshape=(None, image_size, image_size, 1))
+    valid_gt_glob = h5f.create_dataset("valid_gt_glob", (len(store_image_loc) - end_t, image_size, image_size, 1),
+                                       maxshape=(None, image_size, image_size, 1))
+
+
     # LOCAL
     # Split into training / valid datasets
     end_t = round(len(store_image_loc) * train_size)
@@ -169,14 +173,13 @@ def extract_dataset():
     valid_set = store_image_loc[end_t:, :, :, :]
     train_gt_set = store_gt_loc[1:end_t, :, :, :]
     valid_gt_set = store_gt_loc[end_t:, :, :, :]
-
     # Store as an append file
     # First reshape
-    train_loc.resize(train_loc.shape[0] + len(train_set), axis=0)
-    valid_loc.resize(valid_loc.shape[0] + len(valid_set), axis=0)
-
-    train_gt_loc.resize(train_gt_loc.shape[0] + len(train_gt_set), axis=0)
-    valid_gt_loc.resize(valid_gt_loc.shape[0] + len(valid_gt_set), axis=0)
+    # train_loc.resize(train_loc.shape[0] + len(train_set), axis=0)
+    # valid_loc.resize(valid_loc.shape[0] + len(valid_set), axis=0)
+    #
+    # train_gt_loc.resize(train_gt_loc.shape[0] + len(train_gt_set), axis=0)
+    # valid_gt_loc.resize(valid_gt_loc.shape[0] + len(valid_gt_set), axis=0)
 
     # Now append
     train_loc[-len(train_set):] = train_set
@@ -194,11 +197,11 @@ def extract_dataset():
 
     # Store as an append file
     # First reshape
-    train_glob.resize(train_glob.shape[0] + len(train_set), axis=0)
-    valid_glob.resize(valid_glob.shape[0] + len(valid_set), axis=0)
-
-    train_gt_glob.resize(train_gt_glob.shape[0] + len(train_gt_set), axis=0)
-    valid_gt_glob.resize(valid_gt_glob.shape[0] + len(valid_gt_set), axis=0)
+    # train_glob.resize(train_glob.shape[0] + len(train_set), axis=0)
+    # valid_glob.resize(valid_glob.shape[0] + len(valid_set), axis=0)
+    #
+    # train_gt_glob.resize(train_gt_glob.shape[0] + len(train_gt_set), axis=0)
+    # valid_gt_glob.resize(valid_gt_glob.shape[0] + len(valid_gt_set), axis=0)
 
     # Now append
     train_glob[-len(train_set):] = train_set
