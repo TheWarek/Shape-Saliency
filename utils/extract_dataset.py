@@ -16,9 +16,11 @@ import h5py
 from utils.util import *
 
 # area in px as borders for each shape
-area = 80
+area = 50
 image_size = 400
-verbose = 1 # Store images for view
+kernel = 801
+sigma = 32
+verbose = 0 # Store images for view
 store_verbose = '../images/dataset/'
 
 # where to store h5py file
@@ -56,10 +58,14 @@ def extract_dataset():
     images = get_images_list()
 
     # List of images to store later:
-    store_image_loc = []
-    store_image_glob = []
-    store_gt_loc = []
-    store_gt_glob = []
+    store_image_loc = None
+    store_image_glob = None
+    store_gt_loc = None
+    store_gt_glob = None
+    store_image_loc = np.zeros(shape=(0, image_size, image_size, len(loc_models) + 1))
+    store_image_glob = np.zeros(shape=(0, image_size, image_size, len(glob_models) + 1))
+    store_gt_loc = np.zeros(shape=(0, image_size, image_size, 1))
+    store_gt_glob = np.zeros(shape=(0, image_size, image_size, 1))
 
     # Extract basic shape image and its coordinates
     for i, image in enumerate(images):
@@ -68,6 +74,10 @@ def extract_dataset():
         # 2. store unedited shape
         # 3. store all local models
         # 4. store ground truth
+
+        # Two images - continue due to certain models not having information about it
+        if 'two' in image:
+            continue
 
         # Load image and binarize it
         img = cv.imread(os.path.join('../images/.', image), 0)
@@ -81,9 +91,11 @@ def extract_dataset():
         im2, contours, hierarchy = cv.findContours(thr, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
 
         # Ground truth for global saliency models # We can just compute it once
-        blank_image = np.zeros((thr.shape[0], thr.shape[1], 1), np.uint8)
-        gt_glob_image, scaled_gt_glob_image = get_global_gt(name, blank_image, max_fix=4, sigma=32, kernel=81,
+        blank_image = np.zeros((thr.shape[0], thr.shape[1]), np.float) #uint8
+        gt_glob_image, scaled_gt_glob_image = get_global_gt(name, blank_image, max_fix=4, sigma=sigma, kernel=kernel,
                                                             binary=False)
+        if verbose == 1:
+            cv.imwrite(store_verbose + str(i) + '_gt_global_all.png', gt_glob_image)
 
         for j, cnt in enumerate(contours):
             if cnt.shape[0] < 30:
@@ -97,30 +109,37 @@ def extract_dataset():
             #### LOCAL CONTEXT ####
 
             # area px on each side
-            blank_image = np.zeros((max_y - min_y + 2 * area, max_x - min_x + 2 * area, 1), np.uint8)
-            shape_image, scaled_shape_image = get_clipped_shape(thr, bx, by, bw, bh, area, image_size)
-            gt_loc_shape_image, scaled_gt_loc_shape_image = get_local_gt(name, blank_image, bx, by, bw, bh, max_fix=4, sigma=32,
-                                                             kernel=81, binary=False, area=area, resize=image_size)
+            blank_image = np.zeros((max_y - min_y + 2 * area, max_x - min_x + 2 * area), np.float) #uint8
+            shape_image, scaled_shape_image = get_clipped_shape(thr, bx, by, bw, bh, area, image_size, True)
+            gt_loc_shape_image, scaled_gt_loc_shape_image = get_local_gt(name, blank_image, bx, by, bw, bh, max_fix=4, sigma=sigma,
+                                                             kernel=kernel, binary=False, area=area, resize=image_size)
             # scaled image 0 - 1 for network.
             result_image = scaled_shape_image
             if verbose == 1:
                 cv.imwrite(store_verbose + str(i) + '_' + str(j) + '_gt_local.png', gt_loc_shape_image)
+                cv.imwrite(store_verbose + str(i) + '_' + str(j) + '_base_shape.png', shape_image)
 
             # extract each local model now:
             for model in loc_models:
                 mod_img = cv.imread(os.path.join('../models/local/.', model, image), 0)
-                mod_shape, scaled_mod_shape = get_clipped_shape(mod_img, bx, by, bw, bh, area, image_size)
+                mod_shape, scaled_mod_shape = get_clipped_shape(mod_img, bx, by, bw, bh, area, image_size, True)
                 # Create multichannel image
                 result_image = np.concatenate((result_image, scaled_mod_shape), axis=2)
                 if verbose == 1:
                     cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_loc_'+model+'.png',mod_shape)
 
-            store_image_loc.append(result_image)
-            store_gt_loc.append(scaled_gt_loc_shape_image)
+            #store_image_loc.append(result_image)
+            result_image = result_image.reshape((1,) + result_image.shape)
+            store_image_loc = np.append(store_image_loc, result_image, axis=0)
+
+            scaled_gt_loc_shape_image = scaled_gt_loc_shape_image.reshape(scaled_gt_loc_shape_image.shape + (1,))
+            #store_gt_loc.append(scaled_gt_loc_shape_image)
+            scaled_gt_loc_shape_image = scaled_gt_loc_shape_image.reshape((1,) + scaled_gt_loc_shape_image.shape)
+            store_gt_loc = np.append(store_gt_loc, scaled_gt_loc_shape_image, axis=0)
 
             #### GLOBAL CONTEXT ####
 
-            gt_glob_shape_image, scaled_gt_glob_shape_image = get_clipped_shape(gt_glob_image, bx, by, bw, bh, area, image_size)
+            gt_glob_shape_image, scaled_gt_glob_shape_image = get_clipped_shape(gt_glob_image, bx, by, bw, bh, area, image_size, True)
             result_image = scaled_shape_image
             if verbose == 1:
                 cv.imwrite(store_verbose + str(i) + '_' + str(j) + '_gt_global.png', gt_glob_shape_image)
@@ -128,14 +147,19 @@ def extract_dataset():
             # extract each global model now:
             for model in glob_models:
                 mod_img = cv.imread(os.path.join('../models/global/.', model, image), 0)
-                mod_shape, scaled_mod_shape = get_clipped_shape(mod_img, bx, by, bw, bh, area, image_size)
+                mod_shape, scaled_mod_shape = get_clipped_shape(mod_img, bx, by, bw, bh, area, image_size, True)
                 # Create multichannel image
                 result_image = np.concatenate((result_image, scaled_mod_shape), axis=2)
                 if verbose == 1:
                     cv.imwrite(store_verbose+str(i)+'_'+str(j)+'_glob_'+model+'.png',mod_shape)
 
-            store_image_glob.append(result_image)
-            store_gt_glob.append(scaled_gt_glob_shape_image)
+            #store_image_glob.append(result_image)
+            result_image = result_image.reshape((1,) + result_image.shape)
+            store_image_glob = np.append(store_image_glob, result_image, axis=0)
+
+            #store_gt_glob.append(scaled_gt_glob_shape_image)
+            scaled_gt_glob_shape_image = scaled_gt_glob_shape_image.reshape((1,) + scaled_gt_glob_shape_image.shape)
+            store_gt_glob = np.append(store_gt_glob, scaled_gt_glob_shape_image, axis=0)
 
     # APPEND INTO H5PY FILE
     # LOCAL
