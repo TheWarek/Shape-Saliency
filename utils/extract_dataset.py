@@ -209,6 +209,8 @@ def extract_dataset():
     train_gt_glob[-len(train_set):] = train_gt_set
     valid_gt_glob[-len(valid_set):] = valid_gt_set
 
+    # Close file
+    h5f.close()
 
 if __name__ == "__main__":
     extract_dataset()
