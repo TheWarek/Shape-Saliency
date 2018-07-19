@@ -4,7 +4,7 @@ from tensorflow.contrib.layers import flatten
 
 
 
-class siamcoder:
+class SALSH: #Saliency Shape
 
     # Create model
     def __init__(self, psize=32):

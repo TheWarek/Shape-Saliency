@@ -65,10 +65,10 @@ def extract_ground_truth(fixations, sigma, kernel, binary, resize, width, heigth
 
     im_counter = 0
 
-    for file in os.listdir('../images/.'):
+    for file in os.listdir('../images/shapes/.'):
         if file.endswith(".png"):
-            img = cv.imread(os.path.join('../images/.', file), 0)
-            img_color = cv.imread(os.path.join('../images/.', file))
+            img = cv.imread(os.path.join('../images/shapes/.', file), 0)
+            img_color = cv.imread(os.path.join('../images/shapes/.', file))
 
             name = os.path.splitext(file)[0]
             # binarize it (just to be sure)

@@ -11,6 +11,7 @@ from scipy.spatial import distance
 import random
 from sklearn import preprocessing
 import h5py
+import pickle
 
 
 from utils.util import *
@@ -59,7 +60,7 @@ def extract_dataset():
             continue
 
         # Load image and binarize it
-        img = cv.imread(os.path.join('../images/.', image), 0)
+        img = cv.imread(os.path.join('../images/shapes/.', image), 0)
         name = os.path.splitext(image)[0]
 
         # binarize it (just to be sure)
@@ -148,30 +149,30 @@ def extract_dataset():
     # Open file and prepare for append
     h5f = h5py.File(store_file, 'w')
     train_loc = h5f.create_dataset("train_loc", (end_t, image_size, image_size, len(loc_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
+                                   maxshape=(None, image_size, image_size, len(loc_models) + 1), chunks=True)
     valid_loc = h5f.create_dataset("valid_loc", (len(store_image_loc) - end_t, image_size, image_size, len(loc_models) + 1),
-                                   maxshape=(None, image_size, image_size, len(loc_models) + 1))
+                                   maxshape=(None, image_size, image_size, len(loc_models) + 1), chunks=True)
     train_gt_loc = h5f.create_dataset("train_gt_loc", (end_t, image_size, image_size, 1),
-                                      maxshape=(None, image_size, image_size, 1))
+                                      maxshape=(None, image_size, image_size, 1), chunks=True)
     valid_gt_loc = h5f.create_dataset("valid_gt_loc", (len(store_image_loc) - end_t, image_size, image_size, 1),
-                                      maxshape=(None, image_size, image_size, 1))
+                                      maxshape=(None, image_size, image_size, 1), chunks=True)
 
     train_glob = h5f.create_dataset("train_glob", (end_t, image_size, image_size, len(glob_models) + 1),
-                                    maxshape=(None, image_size, image_size, len(glob_models) + 1))
+                                    maxshape=(None, image_size, image_size, len(glob_models) + 1), chunks=True)
     valid_glob = h5f.create_dataset("valid_glob", (len(store_image_loc) - end_t, image_size, image_size, len(glob_models) + 1),
-                                    maxshape=(None, image_size, image_size, len(glob_models) + 1))
+                                    maxshape=(None, image_size, image_size, len(glob_models) + 1), chunks=True)
     train_gt_glob = h5f.create_dataset("train_gt_glob", (end_t, image_size, image_size, 1),
-                                       maxshape=(None, image_size, image_size, 1))
+                                       maxshape=(None, image_size, image_size, 1), chunks=True)
     valid_gt_glob = h5f.create_dataset("valid_gt_glob", (len(store_image_loc) - end_t, image_size, image_size, 1),
-                                       maxshape=(None, image_size, image_size, 1))
+                                       maxshape=(None, image_size, image_size, 1), chunks=True)
 
 
     # LOCAL
     # Split into training / valid datasets
     end_t = round(len(store_image_loc) * train_size)
-    train_set = store_image_loc[1:end_t, :, :, :]
+    train_set = store_image_loc[0:end_t, :, :, :]
     valid_set = store_image_loc[end_t:, :, :, :]
-    train_gt_set = store_gt_loc[1:end_t, :, :, :]
+    train_gt_set = store_gt_loc[0:end_t, :, :, :]
     valid_gt_set = store_gt_loc[end_t:, :, :, :]
     # Store as an append file
     # First reshape
@@ -190,9 +191,9 @@ def extract_dataset():
     # GLOBAL
     # Split into training / valid datasets
     end_t = round(len(store_image_glob) * train_size)
-    train_set = store_image_glob[1:end_t, :, :, :]
+    train_set = store_image_glob[0:end_t, :, :, :]
     valid_set = store_image_glob[end_t:, :, :, :]
-    train_gt_set = store_gt_glob[1:end_t, :, :, :]
+    train_gt_set = store_gt_glob[0:end_t, :, :, :]
     valid_gt_set = store_gt_glob[end_t:, :, :, :]
 
     # Store as an append file

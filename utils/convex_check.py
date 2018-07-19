@@ -9,13 +9,12 @@ import sys, getopt, os
 from scipy.spatial import distance
 import random
 
-
 def run_convex(level, sigma, kernel):
     # load images
-    for file in os.listdir('../images/.'):
+    for file in os.listdir('../images/shapes/.'):
         if file.endswith(".png"):
-            img = cv.imread(os.path.join('../images/.', file), 0)
-            img_color = cv.imread(os.path.join('../images/.', file))
+            img = cv.imread(os.path.join('../images/shapes/.', file), 0)
+            img_color = cv.imread(os.path.join('../images/shapes/.', file))
             # binarize it (just to be sure)
             ret, thr = cv.threshold(img, 127, 255, cv.THRESH_BINARY)
             # find contours of image

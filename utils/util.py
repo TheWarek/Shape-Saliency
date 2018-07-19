@@ -11,7 +11,7 @@ def get_loc_glob_models_list():
     loc_models = []
     glob_models = []
 
-    with open('../models/info.txt', 'r') as file:
+    with open('../images/models/info.txt', 'r') as file:
         line = True
         while line:
             line = file.readline()
@@ -30,7 +30,7 @@ def get_loc_glob_models_list():
 def get_images_list():
 
     images = []
-    for file in os.listdir('../images/.'):
+    for file in os.listdir('../images/shapes/.'):
         if file.endswith(".png"):
             name = os.path.splitext(file)[0]
             images.append(file)
