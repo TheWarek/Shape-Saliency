@@ -109,3 +109,4 @@ images/local_gt
 images/dataset
 datasets/
 datasets/data.h5
+images/results
