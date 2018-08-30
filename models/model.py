@@ -7,7 +7,7 @@ class ModelGAN(object):
         TODO:
          - Support for all models
         """
-    def __init__(self, input_width, input_height, input_channels, batch_size=32):
+    def __init__(self, input_width, input_height, input_channels, input_glob_channels, batch_size=32):
         """
         Init
 
@@ -20,8 +20,13 @@ class ModelGAN(object):
         self.img_rows = input_height
         self.img_cols = input_width
         self.channels = input_channels
+        self.glob_channels = input_glob_channels
         self.img_shape = (self.img_rows, self.img_cols, self.channels)
+        self.img_glob_shape = (self.img_rows, self.img_cols, self.glob_channels)
+        self.img_glob_shape_merged = (self.img_rows, self.img_cols, self.glob_channels + 1)
+
         self.sal_shape = (self.img_rows, self.img_cols, 1)
+        self.sal_shape_merged = (self.img_rows, self.img_cols, 2)
 
         # self.inputWidth = input_width
         # self.inputHeight = input_height

@@ -110,3 +110,4 @@ images/dataset
 datasets/
 datasets/data.h5
 images/results
+logs/

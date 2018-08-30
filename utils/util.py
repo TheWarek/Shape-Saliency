@@ -51,6 +51,9 @@ def get_local_gt(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, bina
     # scaler = MinMaxScaler(copy=True, feature_range=(0, 255))
     # scaler.fit()
 
+    # binary image
+    binary_image = np.zeros((resize, resize), np.float)
+
     with open('../fixations/' + name + '.txt', 'r') as file:
         line = True
         max_i = 0
@@ -72,12 +75,16 @@ def get_local_gt(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, bina
             # In case of fixation within bounding area:
             if (bx <= pt_x <= bx + bw) and (by <= pt_y <= by + bh):
                 max_i = max_i + 1
-                #blank_image[int(math.floor(pt_y - by)) - 2 + area:int(math.floor(pt_y - by)) + 2 + area, int(math.floor(pt_x - bx)) - 2 + area:int(math.floor(pt_x - bx)) + 2 + area, 0] = 255
+
                 blank_image[int(math.floor(pt_y - by)) + area, int(math.floor(pt_x - bx)) + area] = 255.0
+                binary_image[int((int(math.floor(pt_y - by)) + area) * resize / blank_image.shape[0]), int((int(math.floor(pt_x - bx)) + area) * resize / blank_image.shape[1])] = 255.0
 
     if resize > 0:
         blank_image = cv.resize(blank_image, (resize, resize))
         blank_image = blank_image.reshape(resize, resize, 1)
+
+    # Store binary image (fixations) as well for later evaluation
+    binary_image = binary_image.reshape(resize, resize, 1)
 
     if sigma > 0:
         k = matlab_style_gauss2D(shape=(kernel, kernel), sigma=sigma)
@@ -95,7 +102,7 @@ def get_local_gt(name, blank_image, bx, by, bw, bh, max_fix, sigma, kernel, bina
         delim = 1./255
         scaled_image = blank_image * delim
 
-    return blank_image, scaled_image
+    return blank_image, scaled_image, binary_image
 
 def get_global_gt(name, blank_image, max_fix, sigma, kernel, binary):
     with open('../fixations/' + name + '.txt', 'r') as file:
@@ -121,6 +128,9 @@ def get_global_gt(name, blank_image, max_fix, sigma, kernel, binary):
             #blank_image[int(math.floor(pt_y)) - 2:int(math.floor(pt_y)) + 2, int(math.floor(pt_x)) - 2:int(math.floor(pt_x)) + 2, 0] = 255
             blank_image[int(math.floor(pt_y)), int(math.floor(pt_x))] = 255.
 
+    # Store binary image (fixations) as well for later evaluation
+    binary_image = blank_image.copy()
+
     if sigma > 0:
         k = matlab_style_gauss2D(shape=(kernel, kernel), sigma=sigma)
         #blank_image = blank_image.reshape(blank_image.shape[0], blank_image.shape[1])
@@ -138,10 +148,12 @@ def get_global_gt(name, blank_image, max_fix, sigma, kernel, binary):
         delim = 1./255
         scaled_image = blank_image * delim
 
-    return blank_image, scaled_image
+    return blank_image, scaled_image, binary_image
 
-def get_clipped_shape(from_image, bx, by, bw, bh, area, resize, full):
+def get_clipped_shape(from_image, fix_image, bx, by, bw, bh, area, resize, full):
     shape_image = np.zeros((bh + 2 * area, bw + 2 * area, 1), np.float)
+    shape_fix = np.zeros((bh + 2 * area, bw + 2 * area, 1), np.float)
+    shape_fix_full = np.zeros((resize, resize), np.float)
     if full: # include also added area in clipping
         # check for borders
         b1 = (by - area) if (by - area) > 0 else 0
@@ -166,19 +178,34 @@ def get_clipped_shape(from_image, bx, by, bw, bh, area, resize, full):
         else:
             se2 = 2 * area + bw
         shape_image[sb1:se1, sb2:se2, 0] = from_image[b1:e1, b2:e2]
+        shape_fix[sb1:se1, sb2:se2, 0] = fix_image[b1:e1, b2:e2]
         #shape_image[0:2 * area + bh, 0:2 * area + bw, 0] = from_image[b1:e1, b2:e2]
     else:
         shape_image[area:area + bh, area:area + bw, 0] = from_image[by:by + bh, bx:bx + bw]
+        shape_fix[area:area + bh, area:area + bw, 0] = fix_image[by:by + bh, bx:bx + bw]
 
     if resize > 0:
         shape_image = cv.resize(shape_image, (resize, resize))
         shape_image = shape_image.reshape(resize, resize, 1)
 
+        # We cannot resize fixation map. We need to compute new valeus for reshaped image
+        a = np.nonzero(shape_fix > 0)
+        for i in range(0, len(a[0])):
+            shape_fix_full[int(a[0][i] * resize / shape_fix.shape[0]), int(a[1][i] * resize / shape_fix.shape[1])] = 255.
+
+        shape_fix_full = shape_fix_full.reshape(resize, resize, 1)
+        #shape_fix = cv.resize(shape_fix, (resize, resize))
+        #shape_fix = shape_fix.reshape(resize, resize, 1)
+    else:
+        shape_image = shape_image.reshape(shape_image.shape[0], shape_image.shape[1], 1)
+        shape_fix = shape_fix.reshape(shape_fix.shape[0], shape_fix.shape[1], 1)
+
     # We need to scale it to 0-1 based on whole image (in case of global saliency models)
+    # from_image was already scaled globally to 0-255 so we can just make 1/255 computation
     scaled_shape_image = np.zeros((shape_image.shape[0], shape_image.shape[1], 1), np.float)
     scaled_shape_image = shape_image * 1./255.
 
-    return shape_image, scaled_shape_image
+    return shape_image, scaled_shape_image, shape_fix_full
 
 def matlab_style_gauss2D(shape=(3,3),sigma=0.5):
     """
